@@ -25,7 +25,8 @@ Lehkhabu/
 ├── shared/               # Shared TypeScript type definitions
 ├── supabase/             # Supabase Edge Functions
 │   └── functions/
-│       └── ai-proxy/     # Edge Function proxy for backend-ai (deployed, CORS issues)
+│       ├── ai-proxy/     # Edge Function proxy for backend-ai (deployed, CORS issues)
+│       └── send-push/    # Web Push Notification trigger
 ├── migrations/           # Incremental SQL migration files
 ├── docs/
 │   └── BOOK_INGESTION_GUIDE.md
@@ -113,7 +114,8 @@ authorapplicationstatus: PENDING | APPROVED | REJECTED
 | `reading_challenges` | `id`, `user_id`, `year`, `goal`, `completed` | |
 | `author_applications` | `id`, `user_id`, `writing_sample`, `motivation`, `genre`, `social_links`, `sample_file_url`, `sample_file_name`, `status` (authorapplicationstatus), `admin_notes`, `reviewed_by`, `submitted_at`, `reviewed_at` | |
 | `announcements` | `id`, `title`, `content`, `is_active`, `created_by`, `created_at` | |
-| `notifications` | `id`, `user_id`, `type`, `title`, `message`, `is_read`, `metadata` (JSONB), `created_at` | Used for author approval/rejection notifications |
+| `notifications` | `id`, `user_id`, `type`, `title`, `message`, `is_read`, `metadata` (JSONB), `created_at` | Triggers the `send-push` Edge Function via database trigger |
+| `user_push_tokens` | `id`, `user_id`, `endpoint`, `p256dh`, `auth`, `created_at` | Web Push VAPID tokens (1 per device) |
 | `admin_accounts` | `id` (refs `auth.users`), `email`, `role` (`admin`/`super_admin`/`readonly_admin`), `is_active`, `last_login_at` | Separate from `users` table |
 
 ### AI Tables (owned by backend-ai, managed by Alembic)
@@ -228,9 +230,11 @@ DRAFT → SUBMITTED → UNDER_REVIEW → APPROVED/PUBLISHED
 ### PWA Features
 - Service worker via `vite-plugin-pwa` + Workbox
 - `PWAInstallBanner.tsx`, `UpdateNotification.tsx`
+- Web Push Notifications (Native OS push via VAPID keys)
 - Offline capable for cached content
 
 ### Key Hooks
+- `usePushNotifications.ts` — Manages Notification permissions, Service Worker registration, and DB syncing
 - `useNotifications.ts` — Real-time Supabase Realtime subscription for notification bell
 - `usePWA.ts` — Install/update detection
 - `usePageMeta.ts` — Dynamic `<title>` + `<meta description>`
@@ -451,6 +455,17 @@ const AI_PROXY_URL = `${SUPABASE_URL}/functions/v1/ai-proxy`;
 // GET /ai-proxy?action=chapters&book_id=...
 ```
 
+### 9.2 `send-push` Edge Function
+**Location:** `supabase/functions/send-push/`
+
+**Purpose:** Delivers native Web Push notifications to user devices.
+
+**How it works:**
+1. A database trigger (`on_notification_insert`) fires when a row is added to the `notifications` table.
+2. The trigger calls `send-push` via `pg_net` (PostgreSQL network extension) with the payload.
+3. The function fetches the user's saved tokens from `user_push_tokens`.
+4. It signs a JWT and delivers the push directly to Chrome/Safari/Edge using the Web Push API (web-push npm package).
+
 ---
 
 ## 10. Environment Variables
@@ -541,12 +556,12 @@ curl -X POST http://localhost:8001/ingest/upload \
 - Custom text-based book reader pulling context directly from database chunks (`book_chunks`)
 - Q&A Markdown rendering properly in the frontend (`react-markdown`)
 - `book_chunks.book_id` is correctly typed as `UUID(as_uuid=False)` in SQLAlchemy (fixed)
+- Web Push Notifications via Service Worker, `user_push_tokens` table, and `send-push` Edge Function
 
 ### ⏳ In Progress / Not Yet Active
 - **Payment** — Razorpay columns and purchase flow exist in UI; payment gateway not configured. Books are free during beta.
 - **AI ↔ Frontend** — Edge Function `ai-proxy` has CORS preflight issues in production. Bypassed for local dev via direct localhost calls.
 - **Algolia** — Frontend code is complete and falls back to Supabase search. Needs API keys to activate.
-- **Push notifications** — PWA infrastructure exists but not configured.
 - **Embedding quota** — Free tier: 1,000 API calls/day for `gemini-embedding-001`. Large books may exhaust quota in a single ingestion. Resets daily at midnight Pacific time.
 - **UI Settings (Admin)** — Route temporarily removed due to missing `app_settings` table.
 
@@ -556,7 +571,9 @@ curl -X POST http://localhost:8001/ingest/upload \
 - Gemini summarize calls use **synchronous** `generate_content()` (not async) to avoid grpc.aio event loop issues in Celery workers
 - `gemini-embedding-004` is NOT available on the current API key — use `gemini-embedding-001` with `output_dimensionality=768`
 - Admin users cannot access the user marketplace — `authStore.ts` explicitly blocks them and signs them out
+- Safari on macOS `localhost` can silently block Service Worker installation and Web Push. Best tested on Chrome.
+- Vite PWA dev mode requires a `try/catch` wrapper around SPA routing (`NavigationRoute`) in `sw.ts` to prevent crashing during installation.
 
 ---
 
-*Last updated: June 4, 2026 — reflects current working state after custom Reader implementation, markdown Q&A rendering, and frontend-to-backend AI direct bypass.*
+*Last updated: June 5, 2026 — reflects current working state after implementing Web Push Notifications end-to-end with Supabase Edge Functions.*

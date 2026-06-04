@@ -37,12 +37,14 @@ precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
 
 // ── Navigation Fallback ───────────────────────────────────────
-const handler = createHandlerBoundToURL('/index.html');
-registerRoute(
-  new NavigationRoute(handler, {
+try {
+  const handler = createHandlerBoundToURL('/index.html');
+  registerRoute(new NavigationRoute(handler, {
     denylist: [/^\/offline\.html$/],
-  })
-);
+  }));
+} catch (err) {
+  console.warn('Skipping SPA navigation route in dev mode');
+}
 
 // ── Runtime Caching ───────────────────────────────────────────
 

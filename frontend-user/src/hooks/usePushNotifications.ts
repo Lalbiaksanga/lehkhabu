@@ -71,7 +71,22 @@ export function usePushNotifications() {
       }
 
       // 2. Get the service worker registration
-      const swReg = await navigator.serviceWorker.ready;
+      let swReg = await navigator.serviceWorker.getRegistration();
+      if (!swReg) {
+        console.warn("No SW found via getRegistration(). Attempting manual registration...");
+        try {
+          swReg = await navigator.serviceWorker.register(
+            import.meta.env.DEV ? '/src/sw.ts' : '/sw.js', 
+            { type: import.meta.env.DEV ? 'module' : 'classic' }
+          );
+        } catch (e) {
+          console.error("Manual registration failed:", e);
+        }
+      }
+
+      if (!swReg) {
+        throw new Error("No Service Worker registered! Vite PWA is not running properly.");
+      }
 
       // 3. Subscribe to Web Push
       const subscription = await swReg.pushManager.subscribe({
@@ -85,7 +100,7 @@ export function usePushNotifications() {
       };
 
       // 4. Save subscription to Supabase (upsert on conflict)
-      const { error } = await supabase.from('user_push_tokens').upsert(
+      const { data, error } = await supabase.from('user_push_tokens').upsert(
         {
           user_id: profile.id,
           endpoint,
@@ -93,12 +108,10 @@ export function usePushNotifications() {
           auth: keys.auth,
         },
         { onConflict: 'user_id,endpoint' }
-      );
+      ).select();
 
-      if (error) {
-        console.error('[Push] Failed to save push token:', error);
-        setStatus('error');
-        return;
+      if (error || !data || data.length === 0) {
+        throw new Error(error?.message || "Database silently rejected the push token. RLS policy blocked it.");
       }
 
       setStatus('subscribed');
@@ -106,6 +119,7 @@ export function usePushNotifications() {
     } catch (err) {
       console.error('[Push] Registration error:', err);
       setStatus('error');
+      throw err;
     }
   }, [isSupported, profile?.id]);
 

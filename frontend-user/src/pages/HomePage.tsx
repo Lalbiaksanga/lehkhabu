@@ -291,7 +291,7 @@ export default function HomePage() {
 
   return (
     <div className="hb-page">
-
+      
       {/* ── Greeting ────────────────────────────────────── */}
       <div className="hb-greeting">
         <div>
