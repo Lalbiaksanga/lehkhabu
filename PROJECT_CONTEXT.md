@@ -46,7 +46,7 @@ Lehkhabu/
 
 | Layer | Technology |
 |-------|-----------|
-| **Frontend (User)** | React 19, TypeScript, Vite, Zustand, Supabase JS, PWA (Workbox), Algolia (optional) |
+| **Frontend (User)** | React 19, TypeScript, Vite, Zustand, Supabase JS, PWA (Workbox), Algolia, react-markdown |
 | **Frontend (Admin)** | React 19, TypeScript, Vite, TanStack React Query, Recharts, Lucide Icons, date-fns, Supabase JS |
 | **Backend AI** | Python 3.12+, FastAPI, SQLAlchemy (async/asyncpg), Celery, Gemini AI, Docling (IBM), pgvector, Alembic |
 | **Backend API** | Python, FastAPI, SQLAlchemy, JWT auth (reserved — not deployed) |
@@ -76,7 +76,7 @@ Admins  ──▶ frontend-admin ──▶ Supabase (same project)
 - Both frontends communicate **directly with Supabase** using the public anon key + RLS
 - `backend-ai` connects to the **same Supabase PostgreSQL** via `DATABASE_URL` (direct connection, not via Supabase client)
 - `backend-ai` is **internal-only** — all routes (except `/health`) require `x-internal-key` header
-- A Supabase Edge Function `ai-proxy` exists to allow the frontend to call `backend-ai` without exposing the internal key — but it has CORS preflight issues in production. Currently tested directly against `localhost:8001`
+- A Supabase Edge Function `ai-proxy` exists to allow the frontend to call `backend-ai` without exposing the internal key — but it has CORS preflight issues in production. Currently, `frontend-user` bypasses the proxy and calls `localhost:8001` directly with the `x-internal-key` for local development.
 - `backend-api` is fully implemented but **not deployed** (reserved for future server-side needs like payment webhooks)
 
 ---
@@ -157,14 +157,14 @@ All tables have RLS enabled. Key patterns:
 | `/explore` | ExplorePage | ✅ | Browse/filter all books (Algolia or Supabase fallback) |
 | `/search` | ExplorePage | ✅ | Same as /explore with URL query param |
 | `/library` | LibraryPage | ✅ | Purchased books + reading progress + wishlist |
-| `/book/:id` | BookDetailPage | ✅ | Book detail, reviews, AI Q&A, purchase |
-| `/read/:id` | ReaderPage | ✅ | Full-screen reader (standalone layout, no AppLayout) |
+| `/book/:id` | BookDetailPage | ✅ | Book detail, reviews, AI Q&A panel (rendered with react-markdown), purchase |
+| `/read/:id` | ReaderPage | ✅ | Custom text-based reader pulling context from `book_chunks` table, font/theme controls |
 | `/u/:username` | PublicProfilePage | ✅ | Public user/author profile |
 | `/profile` | ProfilePage | ✅ | Own profile with achievements, stats, reading goals |
 | `/profile/settings/profile` | ProfileSettingsPage | ✅ | Edit name, bio, avatar, cover photo |
 | `/profile/settings/account` | AccountSettingsPage | ✅ | Email, username, password |
 | `/apply` | AuthorApplicationPage | ✅ | Apply to become an author |
-| `/author` | AuthorDashboardPage | ✅ (AUTHOR role) | Manage books, view stats, submit new books |
+| `/author` | AuthorDashboardPage | ✅ (AUTHOR) | Manage books, view stats, submit new books |
 | `/achievements` | AchievementsPage | ✅ | Gamification badges |
 
 ### Key Services (`frontend-user/src/services/`)
@@ -173,7 +173,7 @@ All tables have RLS enabled. Key patterns:
 - `purchases.service.ts` — `fetchUserPurchases`, `createPurchase`
 - `author.service.ts` — `get_author_dashboard` RPC, book CRUD (create/update/delete/submit), notifications
 - `profile.service.ts` — Profile CRUD, avatar/cover upload
-- `ai.service.ts` — `streamBookQA()` (SSE), `getBookSummary()`, `getChapterSummaries()` — all route through Supabase Edge Function `ai-proxy`
+- `ai.service.ts` — `streamBookQA()` (SSE), `getBookSummary()`, `getChapterSummaries()` — currently configured to bypass Supabase Edge Function and call `localhost:8001` directly with `x-internal-key` for local development.
 - `algolia.ts` — Algolia search client (only active if `VITE_ALGOLIA_APP_ID` is set)
 
 ### State Stores (Zustand, `frontend-user/src/store/`)
@@ -253,7 +253,7 @@ DRAFT → SUBMITTED → UNDER_REVIEW → APPROVED/PUBLISHED
 | `/orders` | OrdersPage | All purchases/orders |
 | `/analytics` | AnalyticsPage | Charts: revenue, genre distribution, user growth |
 | `/announcements` | AnnouncementsPage | Create/manage platform announcements |
-| `/ui-settings` | UISettingsPage | Platform appearance customization |
+| `/ui-settings` | UISettingsPage | Platform appearance customization (Currently disabled/hidden due to missing `app_settings` table) |
 | `/settings` | SettingsPage | Admin settings |
 | `/admins` | AdminAccountsPage | Manage admin team (super_admin only) |
 
@@ -537,15 +537,18 @@ curl -X POST http://localhost:8001/ingest/upload \
 - Gamification: achievements, reading goals, stats
 - Profile pages with social links, avatar, cover photo
 - PWA: installable, offline cache, update notifications
-- Backend AI: ingestion pipeline, Q&A, summaries (works end-to-end on localhost)
+- Backend AI: ingestion pipeline, Q&A, summaries (works end-to-end on localhost directly from frontend bypassing Edge function)
+- Custom text-based book reader pulling context directly from database chunks (`book_chunks`)
+- Q&A Markdown rendering properly in the frontend (`react-markdown`)
 - `book_chunks.book_id` is correctly typed as `UUID(as_uuid=False)` in SQLAlchemy (fixed)
 
 ### ⏳ In Progress / Not Yet Active
 - **Payment** — Razorpay columns and purchase flow exist in UI; payment gateway not configured. Books are free during beta.
-- **AI ↔ Frontend** — Edge Function `ai-proxy` has CORS preflight issues in production. Works on localhost.
+- **AI ↔ Frontend** — Edge Function `ai-proxy` has CORS preflight issues in production. Bypassed for local dev via direct localhost calls.
 - **Algolia** — Frontend code is complete and falls back to Supabase search. Needs API keys to activate.
 - **Push notifications** — PWA infrastructure exists but not configured.
 - **Embedding quota** — Free tier: 1,000 API calls/day for `gemini-embedding-001`. Large books may exhaust quota in a single ingestion. Resets daily at midnight Pacific time.
+- **UI Settings (Admin)** — Route temporarily removed due to missing `app_settings` table.
 
 ### ⚠️ Known Gotchas
 - `books.status` is `VARCHAR(50)` not an enum — don't use the `bookstatus` enum type for it
@@ -556,29 +559,4 @@ curl -X POST http://localhost:8001/ingest/upload \
 
 ---
 
-## 14. Dependencies Summary
-
-### frontend-user
-```
-@supabase/supabase-js, algoliasearch, react, react-dom, react-easy-crop,
-react-instantsearch, react-router-dom, zustand
-Dev: vite, typescript, @vitejs/plugin-react, vite-plugin-pwa, workbox-window
-```
-
-### frontend-admin
-```
-@supabase/supabase-js, @tanstack/react-query, date-fns, lucide-react,
-pg, react, react-dom, react-router-dom, recharts
-Dev: vite, typescript, @vitejs/plugin-react
-```
-
-### backend-ai
-```
-fastapi, uvicorn[standard], sqlalchemy[asyncio], asyncpg, psycopg2-binary,
-alembic, pgvector, pydantic-settings, google-generativeai, tiktoken,
-docling, httpx, celery[sqlalchemy], pytest, pytest-asyncio
-```
-
----
-
-*Last updated: June 3, 2026 — reflects current working state after UUID type fix and embedding model switch*
+*Last updated: June 4, 2026 — reflects current working state after custom Reader implementation, markdown Q&A rendering, and frontend-to-backend AI direct bypass.*
