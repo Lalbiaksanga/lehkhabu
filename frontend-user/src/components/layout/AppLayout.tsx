@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { useNotifications } from '../../hooks/useNotifications';
+import { usePushNotifications } from '../../hooks/usePushNotifications';
 import PWAInstallBanner from '../common/PWAInstallBanner';
 import UpdateNotification from '../common/UpdateNotification';
 
@@ -118,6 +119,16 @@ export default function AppLayout() {
   const { profile } = useAuthStore();
   const navigate = useNavigate();
   const { approvalPopup, dismissPopup } = useNotifications();
+  const { registerPush } = usePushNotifications();
+
+  // Auto-register for push notifications once the user is logged in
+  useEffect(() => {
+    if (profile?.id) {
+      // Slight delay so service worker is ready before we subscribe
+      const timer = setTimeout(() => registerPush(), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [profile?.id, registerPush]);
 
   const displayInitial =
     profile?.full_name?.[0]?.toUpperCase() ??

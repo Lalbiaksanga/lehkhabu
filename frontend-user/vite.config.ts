@@ -8,72 +8,12 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       registerType: 'autoUpdate',
-      injectRegister: 'auto',
-      workbox: {
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
-        navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/offline\.html$/],
-        runtimeCaching: [
-          // Supabase API — network-first with offline fallback
-          {
-            urlPattern: /^https:\/\/puwqymuuibpysixvkund\.supabase\.co\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'supabase-api',
-              networkTimeoutSeconds: 8,
-              expiration: {
-                maxEntries: 200,
-                maxAgeSeconds: 60 * 60 * 24, // 24 hours
-              },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-          // Supabase storage (book covers) — stale-while-revalidate
-          {
-            urlPattern: /^https:\/\/puwqymuuibpysixvkund\.supabase\.co\/storage\/.*/i,
-            handler: 'StaleWhileRevalidate',
-            options: {
-              cacheName: 'book-covers',
-              expiration: {
-                maxEntries: 500,
-                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
-              },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-          // Google Fonts — cache-first (very stable)
-          {
-            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts',
-              expiration: {
-                maxEntries: 30,
-                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
-              },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-          // Algolia — network-first
-          {
-            urlPattern: /^https:\/\/.*\.algolia(net|\.com)\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'algolia-search',
-              networkTimeoutSeconds: 5,
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 5, // 5 minutes
-              },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-        ],
-        // Offline fallback for navigation
-        offlineGoogleAnalytics: false,
-        skipWaiting: true,
-        clientsClaim: true,
       },
       manifest: {
         name: 'Lehkhabu — Read, Discover, Collect',
@@ -125,7 +65,7 @@ export default defineConfig({
         ],
       },
       devOptions: {
-        enabled: false, // disable in dev to avoid noise
+        enabled: false,
       },
     }),
   ],
