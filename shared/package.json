@@ -1,0 +1,13 @@
+{
+  "name": "@lehkhabu/shared",
+  "version": "1.0.0",
+  "description": "Shared TypeScript types for Lehkhabu",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

@@ -1,0 +1,27 @@
+node_modules
+.env
+.env.local
+.env.production
+.env.*.local
+__pycache__
+.venv
+dist
+build
+*.pyc
+.DS_Store
+*.egg-info
+.pytest_cache
+*.log
+
+# IDE
+.vscode
+.idea
+
+# Supabase CLI temp files
+supabase/.temp
+
+# Python uploads
+uploads/
+
+# OS files
+Thumbs.db

@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /
+
+# Block access to auth-protected routes (they redirect anyway)
+Disallow: /library
+Disallow: /profile
+Disallow: /author
+Disallow: /apply
+Disallow: /read/
+Disallow: /achievements
+
+# Allow public pages
+Allow: /explore
+Allow: /book/
+
+Sitemap: https://lehkhabu.com/sitemap.xml

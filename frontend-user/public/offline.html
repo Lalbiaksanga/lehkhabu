@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>You're Offline — Lehkhabu</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 20px;
+      font-family: 'Outfit', system-ui, sans-serif;
+      background: #FDF6EC;
+      color: #3B2B1A;
+      padding: 24px;
+      text-align: center;
+    }
+    .icon { font-size: 4rem; }
+    h1 { font-size: 1.75rem; font-weight: 700; color: #8B5E3C; }
+    p { color: #7A6A5A; max-width: 340px; line-height: 1.6; }
+    button {
+      margin-top: 8px;
+      background: #8B5E3C;
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 12px 28px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    button:hover { background: #6B4530; }
+  </style>
+</head>
+<body>
+  <div class="icon">📚</div>
+  <h1>You're Offline</h1>
+  <p>It looks like you've lost your internet connection. Some content may still be available from your last visit.</p>
+  <button onclick="window.location.reload()">Try Again</button>
+</body>
+</html>
